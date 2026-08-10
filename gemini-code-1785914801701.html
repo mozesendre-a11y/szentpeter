@@ -1,0 +1,432 @@
+<!DOCTYPE html>
+<html lang="hu">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Számonka - Matematika Gyakorló</title>
+    <style>
+        :root {
+            --bg-color: #e8f5e9; /* Világos zöld */
+            --panel-bg: #f5f5f5; /* Szürke */
+            --text-green: #1b5e20;
+            --text-orange: #e65100;
+            --text-black: #212121;
+            --btn-green: #2e7d32;
+            --btn-orange: #f57c00;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-black);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+        }
+
+        .container {
+            background-color: var(--panel-bg);
+            padding: 2rem;
+            border-radius: 12px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            width: 100%;
+            max-width: 600px;
+            text-align: center;
+        }
+
+        h1 { color: var(--text-green); }
+        h2 { color: var(--text-orange); }
+
+        .hidden { display: none !important; }
+
+        .form-group {
+            margin-bottom: 1.5rem;
+            text-align: left;
+        }
+
+        label {
+            display: block;
+            font-weight: bold;
+            margin-bottom: 0.5rem;
+            color: var(--text-green);
+        }
+
+        select, input[type="text"], input[type="number"] {
+            width: 100%;
+            padding: 0.8rem;
+            border: 2px solid #ccc;
+            border-radius: 6px;
+            font-size: 1.1rem;
+            box-sizing: border-box;
+        }
+
+        button {
+            padding: 1rem 2rem;
+            font-size: 1.2rem;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: bold;
+            color: white;
+            transition: background-color 0.3s;
+            margin: 0.5rem;
+        }
+
+        .btn-start { background-color: var(--btn-green); width: 100%; }
+        .btn-start:hover { background-color: #1b5e20; }
+        
+        .btn-action { background-color: var(--btn-orange); }
+        .btn-action:hover { background-color: #e65100; }
+
+        .task-display {
+            font-size: 3rem;
+            font-weight: bold;
+            margin: 2rem 0;
+            color: var(--text-black);
+            letter-spacing: 2px;
+        }
+
+        .input-answer {
+            font-size: 2rem;
+            text-align: center;
+            width: 150px;
+        }
+
+        #feedback-msg {
+            font-size: 1.5rem;
+            font-weight: bold;
+            height: 2rem;
+            margin-bottom: 1rem;
+        }
+
+        .correct { color: var(--text-green); }
+        .incorrect { color: var(--text-orange); }
+
+        .stats-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 1rem;
+        }
+        .stats-table th, .stats-table td {
+            border: 1px solid #ccc;
+            padding: 0.5rem;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div id="setup-screen">
+        <h1>Számonka</h1>
+        <div class="form-group">
+            <label for="student-name">Diák neve:</label>
+            <input type="text" id="student-name" placeholder="Írd be a neved..." autocomplete="off">
+        </div>
+        <div class="form-group">
+            <label for="app-mode">Mód:</label>
+            <select id="app-mode">
+                <option value="practice">Gyakorlás</option>
+                <option value="test">Tesztelés</option>
+            </select>
+        </div>
+        <div class="form-group">
+            <label for="level">Szint:</label>
+            <select id="level">
+                <option value="50">Alapszint (0 - 50)</option>
+                <option value="200">Középszint (0 - 200)</option>
+                <option value="1000">Haladószint (0 - 1000)</option>
+            </select>
+        </div>
+        <div class="form-group">
+            <label for="operation">Művelet:</label>
+            <select id="operation">
+                <option value="add">Összeadás (+)</option>
+                <option value="sub">Kivonás (-)</option>
+                <option value="mixed">Vegyes (+ és -)</option>
+            </select>
+        </div>
+        <div class="form-group">
+            <label>
+                <input type="checkbox" id="crossing-tens" checked> Tízes átlépés engedélyezve
+            </label>
+        </div>
+        <button class="btn-start" onclick="startGame()">Indítás</button>
+    </div>
+
+    <div id="game-screen" class="hidden">
+        <h2 id="progress-indicator">Feladat: 1 / 10</h2>
+        <div id="task-container" class="task-display"></div>
+        <div>
+            <input type="number" id="answer-input" class="input-answer" autocomplete="off" onkeypress="handleEnter(event)">
+        </div>
+        <div id="feedback-msg"></div>
+        <button class="btn-action" onclick="checkAnswer()" id="check-btn">Ellenőrzés</button>
+    </div>
+
+    <div id="result-screen" class="hidden">
+        <h1>Eredmény összesítő</h1>
+        <h2 id="final-score"></h2>
+        <div id="mistakes-container"></div>
+        <br>
+        <button class="btn-action" onclick="retryMistakes()" id="retry-btn" class="hidden">Hibák újrapróbálása</button>
+        <button class="btn-start" onclick="location.reload()">Új feladatsor</button>
+        <button class="btn-action" onclick="downloadStats()">Eredmény Letöltése (CSV)</button>
+    </div>
+</div>
+
+<script>
+    // --- Állapotváltozók ---
+    const state = {
+        name: '',
+        mode: 'practice',
+        maxNum: 50,
+        operation: 'add',
+        allowCrossing: true,
+        tasks: [],
+        currentTaskIndex: 0,
+        score: 0,
+        mistakes: [],
+        taskCount: 10
+    };
+
+    let audioCtx = null;
+
+    // --- Web Audio API (Generált hangok) ---
+    function playSound(type) {
+        if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        const osc = audioCtx.createOscillator();
+        const gainNode = audioCtx.createGain();
+        osc.connect(gainNode);
+        gainNode.connect(audioCtx.destination);
+
+        if (type === 'correct') {
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(800, audioCtx.currentTime);
+            osc.frequency.exponentialRampToValueAtTime(1200, audioCtx.currentTime + 0.1);
+            gainNode.gain.setValueAtTime(0.1, audioCtx.currentTime);
+            gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.2);
+            osc.start();
+            osc.stop(audioCtx.currentTime + 0.2);
+        } else {
+            osc.type = 'sawtooth';
+            osc.frequency.setValueAtTime(300, audioCtx.currentTime);
+            osc.frequency.exponentialRampToValueAtTime(150, audioCtx.currentTime + 0.3);
+            gainNode.gain.setValueAtTime(0.1, audioCtx.currentTime);
+            gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.3);
+            osc.start();
+            osc.stop(audioCtx.currentTime + 0.3);
+        }
+    }
+
+    // --- Core Logika ---
+    function startGame() {
+        state.name = document.getElementById('student-name').value.trim() || 'Névtelen Diák';
+        state.mode = document.getElementById('app-mode').value;
+        state.maxNum = parseInt(document.getElementById('level').value);
+        state.operation = document.getElementById('operation').value;
+        state.allowCrossing = document.getElementById('crossing-tens').checked;
+        
+        generateTasks(state.taskCount);
+        
+        if (state.tasks.length === 0) {
+            alert("A megadott paraméterekkel nem generálható elég egyedi feladat!");
+            return;
+        }
+
+        // Init audio context on user gesture
+        if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+
+        document.getElementById('setup-screen').classList.add('hidden');
+        document.getElementById('game-screen').classList.remove('hidden');
+        
+        state.currentTaskIndex = 0;
+        state.score = 0;
+        state.mistakes = [];
+        showTask();
+    }
+
+    function checkCrossingTens(a, b, op) {
+        if (state.allowCrossing) return true;
+        
+        let aStr = a.toString().split('').reverse();
+        let bStr = b.toString().split('').reverse();
+        let maxLen = Math.max(aStr.length, bStr.length);
+
+        for (let i = 0; i < maxLen; i++) {
+            let digitA = parseInt(aStr[i] || 0);
+            let digitB = parseInt(bStr[i] || 0);
+            
+            if (op === '+') {
+                if (digitA + digitB > 9) return false;
+            } else if (op === '-') {
+                if (digitA < digitB) return false;
+            }
+        }
+        return true;
+    }
+
+    function generateTasks(count, specificTasks = null) {
+        state.tasks = [];
+        let attempts = 0;
+        const maxAttempts = 5000; // Végtelen ciklus elleni védelem
+
+        while (state.tasks.length < count && attempts < maxAttempts) {
+            attempts++;
+            let a, b, op;
+            let currentOp = state.operation === 'mixed' ? (Math.random() > 0.5 ? 'add' : 'sub') : state.operation;
+            
+            a = Math.floor(Math.random() * state.maxNum) + 1;
+            b = Math.floor(Math.random() * state.maxNum) + 1;
+
+            if (currentOp === 'sub') {
+                if (a < b) { let temp = a; a = b; b = temp; } // Csak pozitív eredmény
+                op = '-';
+            } else {
+                if (a + b > state.maxNum) continue; // Ne lépje túl a szint határát
+                op = '+';
+            }
+
+            if (!checkCrossingTens(a, b, op)) continue;
+
+            let taskString = `${a} ${op} ${b}`;
+            let correctAnswer = op === '+' ? a + b : a - b;
+
+            // Ismétlődés elkerülése
+            if (!state.tasks.some(t => t.text === taskString)) {
+                state.tasks.push({ text: taskString, answer: correctAnswer });
+            }
+        }
+    }
+
+    function showTask() {
+        const inputField = document.getElementById('answer-input');
+        inputField.value = '';
+        inputField.focus();
+        inputField.disabled = false;
+        document.getElementById('check-btn').disabled = false;
+        document.getElementById('feedback-msg').innerHTML = '';
+        
+        document.getElementById('progress-indicator').innerText = `Feladat: ${state.currentTaskIndex + 1} / ${state.tasks.length}`;
+        document.getElementById('task-container').innerText = state.tasks[state.currentTaskIndex].text + ' = ?';
+    }
+
+    function handleEnter(e) {
+        if (e.key === 'Enter') checkAnswer();
+    }
+
+    function checkAnswer() {
+        const inputField = document.getElementById('answer-input');
+        const userAnswer = parseInt(inputField.value);
+        if (isNaN(userAnswer)) return;
+
+        inputField.disabled = true;
+        document.getElementById('check-btn').disabled = true;
+
+        const currentTask = state.tasks[state.currentTaskIndex];
+        const isCorrect = userAnswer === currentTask.answer;
+        const feedbackMsg = document.getElementById('feedback-msg');
+
+        if (isCorrect) {
+            feedbackMsg.innerHTML = '<span class="correct">Helyes!</span>';
+            playSound('correct');
+            state.score++;
+        } else {
+            feedbackMsg.innerHTML = `<span class="incorrect">Hibás! A helyes válasz: ${currentTask.answer}</span>`;
+            playSound('incorrect');
+            state.mistakes.push({ task: currentTask.text, userAns: userAnswer, correctAns: currentTask.answer });
+        }
+
+        setTimeout(() => {
+            state.currentTaskIndex++;
+            if (state.currentTaskIndex < state.tasks.length) {
+                showTask();
+            } else {
+                endSession();
+            }
+        }, state.mode === 'test' ? 500 : 1500); // Teszt módban gyorsabb, nincs hosszas visszajelzés
+    }
+
+    function endSession() {
+        document.getElementById('game-screen').classList.add('hidden');
+        document.getElementById('result-screen').classList.remove('hidden');
+
+        const percentage = Math.round((state.score / state.tasks.length) * 100);
+        document.getElementById('final-score').innerText = `${state.name}, elért pontszám: ${state.score} / ${state.tasks.length} (${percentage}%)`;
+
+        const mistakesDiv = document.getElementById('mistakes-container');
+        const retryBtn = document.getElementById('retry-btn');
+        
+        if (state.mistakes.length > 0) {
+            let tableHTML = '<table class="stats-table"><tr><th>Feladat</th><th>Te válaszod</th><th>Helyes válasz</th></tr>';
+            state.mistakes.forEach(m => {
+                tableHTML += `<tr><td>${m.task}</td><td>${m.userAns}</td><td>${m.correctAns}</td></tr>`;
+            });
+            tableHTML += '</table>';
+            mistakesDiv.innerHTML = tableHTML;
+            
+            if (state.mode === 'practice') {
+                retryBtn.style.display = 'inline-block';
+            } else {
+                retryBtn.style.display = 'none';
+            }
+        } else {
+            mistakesDiv.innerHTML = '<h3 class="correct">Kiváló munka, hibátlan lett!</h3>';
+            retryBtn.style.display = 'none';
+        }
+        
+        saveLocalStats(percentage);
+    }
+
+    function retryMistakes() {
+        // Átemeljük a hibás feladatokat új feladatsornak
+        state.tasks = state.mistakes.map(m => {
+            return { text: m.task, answer: m.correctAns };
+        });
+        state.currentTaskIndex = 0;
+        state.score = 0;
+        state.mistakes = [];
+        
+        document.getElementById('result-screen').classList.add('hidden');
+        document.getElementById('game-screen').classList.remove('hidden');
+        showTask();
+    }
+
+    function saveLocalStats(percentage) {
+        // Lokális adatrögzítés, CSV exportálás alapja
+        const record = {
+            date: new Date().toISOString().split('T')[0],
+            name: state.name,
+            mode: state.mode,
+            score: state.score,
+            total: state.tasks.length,
+            percentage: percentage
+        };
+        let history = JSON.parse(localStorage.getItem('szamonka_history') || '[]');
+        history.push(record);
+        localStorage.setItem('szamonka_history', JSON.stringify(history));
+    }
+
+    function downloadStats() {
+        let history = JSON.parse(localStorage.getItem('szamonka_history') || '[]');
+        if (history.length === 0) return alert("Nincs még letölthető adat.");
+        
+        let csvContent = "data:text/csv;charset=utf-8,Datum,Nev,Mod,Pont,Osszes,Szazalek\n";
+        history.forEach(row => {
+            csvContent += `${row.date},${row.name},${row.mode},${row.score},${row.total},${row.percentage}%\n`;
+        });
+        
+        const encodedUri = encodeURI(csvContent);
+        const link = document.createElement("a");
+        link.setAttribute("href", encodedUri);
+        link.setAttribute("download", "szamonka_statisztika.csv");
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    }
+</script>
+
+</body>
+</html>
